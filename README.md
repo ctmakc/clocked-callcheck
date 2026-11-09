@@ -4,6 +4,8 @@ CallCheck reviews one phone call between a restaurant guest and an AI host (a vo
 restaurant's phone and takes reservations). Paste the restaurant's approved facts and the call transcript, or pick a
 sample, and CallCheck runs five Clocked endpoints in sequence:
 
+![CallCheck after reviewing the sample call: Guard flagged one turn, Verify found 4 contradicted host claims, Decide escalated](docs/screenshot.png)
+
 | Step | Clocked endpoint | What CallCheck sends | How the output changes the app |
 |---|---|---|---|
 | **Guard** | `POST /clocked/injection` | Each guest turn on its own, `source: "user"`, with the host's policy as `instructions` | A turn at or above the threshold is marked as a manipulation attempt: pink bar on the turn, the `evidence` spans highlighted at their exact offsets, category and severity shown, and the finding is passed on to Decide. |
@@ -86,5 +88,10 @@ localhost, so the deployed app only ever shows live Clocked results.
 
 CallCheck is a review aid. Guard, Protect and Verify are detectors with thresholds; a missed finding is possible, so a
 person still owns the decision. The masked transcript only masks what Protect found.
+
+One extraction quirk we hit while building: in a call where the guest said "at 6 pm" before giving a 613- phone number,
+Extract pointed the phone field at the "6" of "6 pm", its verification step rejected that span, and the field came
+back empty (`reason: "verification_rejected"`) instead of wrong. CallCheck shows such a field as "not stated" and counts
+it as missing. The clean sample uses 7 pm.
 
 MIT License.

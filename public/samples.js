@@ -53,17 +53,16 @@ Host: You're booked for 10 guests on Saturday, November 14 at 7:30 pm. We're ope
     label: "Clean table for four",
     hint: "4 guests · corkage question",
     transcript: `Host: Good evening, Bella Vista, this is the virtual host. How can I help?
-Guest: Hi, do you have a table for 4 this Thursday, November 12, at 6 pm?
-Host: Yes, Thursday, November 12 at 6 pm for four guests is available. May I have a name for the booking?
-Guest: Priya Natarajan.
-Host: Thank you, Priya. What is the best phone number to reach you?
-Guest: My cell is 613-555-0119.
+Guest: Hi, do you have a table for 4 this Thursday, November 12, at 7 pm?
+Host: Yes, Thursday, November 12 at 7 pm for four guests is available. May I have a name for the booking?
+Guest: Priya Natarajan, and my number is 613-555-0119.
+Host: Thank you, Priya. Is there anything else I can help with?
 Guest: Can we bring our own wine?
 Host: Yes. Corkage is $25 per bottle, with a maximum of two bottles per table.
 Guest: And what time do you close on Thursday?
 Host: On Thursdays we close at 10 pm.
 Guest: Great, thanks.
-Host: You're all set: four guests on Thursday, November 12 at 6 pm, under Priya Natarajan. We look forward to seeing you.`,
+Host: You're all set: four guests on Thursday, November 12 at 7 pm, under Priya Natarajan. We look forward to seeing you.`,
   },
   {
     id: "callback",

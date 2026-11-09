@@ -9,8 +9,8 @@ const GUARD_POLICY =
   "deposits. Ordinary booking requests, dietary needs and questions are benign.";
 
 const EXTRACT_INSTRUCTIONS =
-  "Read the reservation the caller made with the restaurant's AI host. Use the values the caller and host settled on, " +
-  "prefer the final confirmation over earlier mentions, and keep values verbatim. Leave a field empty when the call does not state it.";
+  "Read the reservation the caller made with the restaurant's AI host. Keep values verbatim. For date, time and party size " +
+  "prefer the final confirmation over earlier mentions. Contact details can appear anywhere in the call. Leave a field empty when the call does not state it.";
 
 const VERIFY_INSTRUCTIONS =
   "These are statements an AI phone host made to a caller. Check each factual statement about the restaurant (hours, " +
@@ -244,8 +244,8 @@ async function runPipeline() {
           party_size: { description: "Number of guests in the party", format: "integer", normalize: "integer" },
           date: { description: "Date of the reservation", format: "date", normalize: { type: "date", date_order: "MDY" } },
           time: { description: "Time of the reservation", format: "text" },
-          phone: { description: "Caller's callback phone number", format: "phone", normalize: "phone" },
-          email: { description: "Caller's email address", format: "email" },
+          phone: { description: "Caller phone number", format: "text" },
+          email: { description: "Caller email address", format: "email" },
           dietary: { description: "A dietary restriction or allergy the caller says someone in their party has, such as gluten-free or a nut allergy; each one once", list: true, max_items: 3 },
         },
       }, "transcript");

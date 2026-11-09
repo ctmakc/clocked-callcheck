@@ -1,0 +1,15 @@
+{
+  "name": "clocked-callcheck",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QA for AI phone-host call transcripts, built on the Clocked API",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "npm run build && wrangler pages dev dist --port 8788",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name clocked-callcheck --branch main"
+  },
+  "devDependencies": {
+    "wrangler": "^4.158.0"
+  }
+}

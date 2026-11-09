@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CallCheck</title>
+<meta name="description" content="CallCheck reviews a call between a guest and an AI restaurant host: it screens guest turns for manipulation, masks personal data, extracts the booking, checks every host answer against the approved facts and decides what staff should do next. Built on the Clocked API.">
+<meta property="og:title" content="CallCheck: QA for AI phone-host calls">
+<meta property="og:description" content="Guard, Protect, Extract, Verify and Decide on one restaurant call transcript, live on the Clocked API.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#2B2F33">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%232B2F33'/%3E%3Cpath d='M8 6h16v18l-2-2-2 2-2-2-2 2-2-2-2 2-2-2-2 2z' fill='%23F7F6F1'/%3E%3Cpath d='M11 12h10M11 16h6' stroke='%23C2141F' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;700;800&family=Azeret+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="replayBanner" class="replay-banner" hidden>RECORDED RESPONSES, local development only. Nothing on this screen is a live Clocked call.</div>
+
+<header class="top">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div>
+      <h1>CallCheck</h1>
+      <p class="tag">QA for calls answered by an AI restaurant host</p>
+    </div>
+  </div>
+  <p class="top-note">Demo restaurant <b>Bella Vista</b> is fictional. Every transcript is synthetic. Results come live from the <a href="https://clocked.rezolve.ai/docs" target="_blank" rel="noopener">Clocked API</a>.</p>
+</header>
+
+<section class="rail-wrap" aria-label="Pipeline">
+  <div class="rail" aria-hidden="true"></div>
+  <ol class="tickets" id="tickets">
+    <li class="ticket" data-step="guard"><span class="clip"></span><div class="t-in">
+      <div class="t-head"><span class="led"></span><span class="t-no">01</span><span class="t-ep">/injection</span></div>
+      <h2 class="t-name">Guard</h2><p class="t-what">Screens each guest turn for attempts to redirect the host</p>
+      <div class="t-out" aria-live="polite"></div></div></li>
+    <li class="ticket" data-step="protect"><span class="clip"></span><div class="t-in">
+      <div class="t-head"><span class="led"></span><span class="t-no">02</span><span class="t-ep">/pii</span></div>
+      <h2 class="t-name">Protect</h2><p class="t-what">Masks personal data so the call can go to staff and analytics</p>
+      <div class="t-out" aria-live="polite"></div></div></li>
+    <li class="ticket" data-step="extract"><span class="clip"></span><div class="t-in">
+      <div class="t-head"><span class="led"></span><span class="t-no">03</span><span class="t-ep">/extract</span></div>
+      <h2 class="t-name">Extract</h2><p class="t-what">Pulls the booking record with its exact source positions</p>
+      <div class="t-out" aria-live="polite"></div></div></li>
+    <li class="ticket" data-step="verify"><span class="clip"></span><div class="t-in">
+      <div class="t-head"><span class="led"></span><span class="t-no">04</span><span class="t-ep">/grounding</span></div>
+      <h2 class="t-name">Verify</h2><p class="t-what">Checks every host answer, claim by claim, against approved facts</p>
+      <div class="t-out" aria-live="polite"></div></div></li>
+    <li class="ticket" data-step="decide"><span class="clip"></span><div class="t-in">
+      <div class="t-head"><span class="led"></span><span class="t-no">05</span><span class="t-ep">/decide</span></div>
+      <h2 class="t-name">Decide</h2><p class="t-what">Sets the call outcome and the follow-ups for staff</p>
+      <div class="t-out" aria-live="polite"></div></div></li>
+  </ol>
+</section>
+
+<main class="work">
+  <section class="pad" aria-labelledby="padTitle">
+    <div class="pad-head">
+      <h2 id="padTitle" class="sec-title">Call transcript</h2>
+      <div class="samples" id="samples" role="radiogroup" aria-label="Sample calls"></div>
+    </div>
+
+    <div id="inputView">
+      <div class="run-row">
+        <button id="runBtn" class="run" type="button"><span class="run-dot" aria-hidden="true"></span>Check this call</button>
+        <p class="run-note" id="runNote">Runs 5 Clocked endpoints in sequence. Takes about 20 seconds.</p>
+      </div>
+      <label class="field-label" for="transcriptIn">Transcript <span>one turn per line, starting with <code>Host:</code> or <code>Guest:</code></span></label>
+      <textarea id="transcriptIn" spellcheck="false" rows="15"></textarea>
+    </div>
+
+    <div id="annotView" hidden>
+      <div class="layers" role="group" aria-label="Highlight layers">
+        <label class="layer l-guard"><input type="checkbox" data-layer="guard" checked><span>Guard</span></label>
+        <label class="layer l-pii"><input type="checkbox" data-layer="pii" checked><span>Personal data</span></label>
+        <label class="layer l-ext"><input type="checkbox" data-layer="ext" checked><span>Booking</span></label>
+        <label class="layer l-ver"><input type="checkbox" data-layer="ver" checked><span>Claims</span></label>
+        <span class="layer-sep"></span>
+        <button type="button" class="ghost" id="maskBtn" aria-pressed="false">Show masked copy</button>
+        <button type="button" class="ghost" id="editBtn">Edit input</button>
+      </div>
+      <div id="transcriptOut" class="transcript show-guard show-pii show-ext show-ver"></div>
+    </div>
+  </section>
+
+  <aside class="side" aria-labelledby="sideTitle">
+    <div id="factsView">
+      <label class="sec-title field-label" id="sideTitle" for="factsIn">Approved facts <span>what the host is allowed to say</span></label>
+      <textarea id="factsIn" spellcheck="false" rows="19"></textarea>
+    </div>
+    <div id="reportView" hidden></div>
+  </aside>
+</main>
+
+<section class="log-wrap" id="logWrap" hidden>
+  <details class="log">
+    <summary>API log <span id="logSum"></span></summary>
+    <div id="logList"></div>
+  </details>
+</section>
+
+<footer class="foot">
+  <p><b>How it works.</b> The browser sends each step to a Cloudflare Pages Function that adds the Clocked key server-side and forwards the request to <code>clocked.rezolve.ai/clocked/&lt;endpoint&gt;</code> with a fresh Idempotency-Key. Offsets in every response are Unicode code points into the text that was sent, so highlights land on the exact characters Clocked read.</p>
+  <p><a href="https://github.com/ctmakc/clocked-callcheck" target="_blank" rel="noopener">Source on GitHub</a> · MIT · Built for the Clocked Build Challenge 2026 · <a href="demo.mp4">Demo video</a></p>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

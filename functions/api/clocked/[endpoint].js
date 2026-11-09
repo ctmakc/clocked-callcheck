@@ -27,6 +27,11 @@ function json(status, body, extra = {}) {
 export async function onRequestPost({ request, params, env }) {
   const endpoint = String(params.endpoint || "");
   if (!ALLOWED.has(endpoint)) return json(404, { error: `Unknown endpoint: ${endpoint}` });
+  // Browsers on other sites may not spend this deployment's credits.
+  const origin = request.headers.get("origin");
+  if (origin && new URL(origin).host !== new URL(request.url).host) {
+    return json(403, { error: "Cross-origin requests are not allowed." });
+  }
   if (!env.CLOCKED_API_KEY) {
     return json(503, { error: "CLOCKED_API_KEY is not configured on this deployment.", code: "no_key" });
   }

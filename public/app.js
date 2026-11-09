@@ -111,6 +111,16 @@ async function replayCall(endpoint, body, label) {
   return rec.response;
 }
 
+// Small bounded queue: the account allows a few concurrent requests; never fan out unbounded.
+async function pool(items, size, fn) {
+  let next = 0;
+  const worker = async () => { while (next < items.length) { const i = next++; await fn(items[i], i); } };
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, worker));
+}
+
+// Guard returns supporting passages with a confidence; only highlight the ones it is sure about.
+const strongEvidence = (r) => (r?.evidence || []).filter((ev) => (ev.confidence ?? 1) >= 0.75 && Number.isInteger(ev.start));
+
 // ---------------------------------------------------------------- UI state
 let currentSample = SAMPLES[0];
 let run = null; // results of the last pipeline run
@@ -194,18 +204,19 @@ async function runPipeline() {
   try {
     // 1. GUARD — every guest turn, source "user"
     setTicket("guard", "running", `<span class="t-line">0 / ${guests.length} guest turns</span>`);
-    run.guard = [];
-    for (const [i, g] of guests.entries()) {
+    run.guard = new Array(guests.length);
+    let screened = 0;
+    await pool(guests, 3, async (g, i) => {
       try {
         const r = await clocked("injection", { text: g.content, source: "user", instructions: GUARD_POLICY, evidence: true, threshold: 0.5 }, `guest turn ${g.idx + 1}`);
         const flagged = (r.injection ?? 0) >= (r.threshold ?? 0.5);
-        run.guard.push({ line: g, r, flagged });
+        run.guard[i] = { line: g, r, flagged };
       } catch (e) {
-        run.guard.push({ line: g, error: e.message });
+        run.guard[i] = { line: g, error: e.message };
         if (e.code === "no_key") throw e;
       }
-      $(".t-out", ticket("guard")).innerHTML = `<span class="t-line">${i + 1} / ${guests.length} guest turns</span>`;
-    }
+      $(".t-out", ticket("guard")).innerHTML = `<span class="t-line">${++screened} / ${guests.length} guest turns</span>`;
+    });
     const flagged = run.guard.filter((x) => x.flagged);
     const gErr = run.guard.filter((x) => x.error).length;
     setTicket("guard", gErr === guests.length ? "failed" : "done",
@@ -233,9 +244,9 @@ async function runPipeline() {
           party_size: { description: "Number of guests in the party", format: "integer", normalize: "integer" },
           date: { description: "Date of the reservation", format: "date", normalize: { type: "date", date_order: "MDY" } },
           time: { description: "Time of the reservation", format: "text" },
-          phone: { description: "Caller's callback phone number", format: "phone", normalize: { type: "phone", country_code: "CA" } },
+          phone: { description: "Caller's callback phone number", format: "phone", normalize: "phone" },
           email: { description: "Caller's email address", format: "email" },
-          dietary: { description: "Dietary needs or allergies the caller mentioned", list: true, max_items: 4 },
+          dietary: { description: "A dietary restriction or allergy the caller says someone in their party has, such as gluten-free or a nut allergy; each one once", list: true, max_items: 3 },
         },
       }, "transcript");
       const f = run.extract.fields || {};
@@ -349,7 +360,7 @@ const DECIDE_QUESTIONS = {
 function decideState() {
   return {
     call_transcript_personal_data_masked: run.pii?.anonymized_text || "(masking unavailable, transcript withheld)",
-    guard_findings: (run.guard || []).filter((g) => g.flagged).map((g) => ({ caller_said: g.r.evidence?.[0]?.quote || "(see transcript)", category: g.r.category, severity: g.r.severity })),
+    guard_findings: (run.guard || []).filter((g) => g.flagged).map((g) => ({ caller_said: strongEvidence(g.r).map((e) => e.quote).join(" ") || g.line.content, category: g.r.category, severity: g.r.severity })),
     host_claims_checked_against_approved_facts: (run.verify?.claims || [])
       .filter((c) => c.counted !== false && c.verdict !== "not_a_claim")
       .map((c) => ({ claim: c.claim, verdict: c.verdict })),
@@ -366,7 +377,7 @@ function spansForRun() {
     (f.items || []).forEach((it) => Number.isInteger(it.start) && spans.push({ s: it.start, e: it.end, cls: "ext", tag: k }));
   });
   (run.guard || []).filter((g) => g.flagged).forEach((g) =>
-    (g.r.evidence || []).forEach((ev) => Number.isInteger(ev.start) && spans.push({ s: g.line.cStart + ev.start, e: g.line.cStart + ev.end, cls: "guard" })));
+    strongEvidence(g.r).forEach((ev) => spans.push({ s: g.line.cStart + ev.start, e: g.line.cStart + ev.end, cls: "guard" })));
   return spans;
 }
 
@@ -489,13 +500,13 @@ function renderReport() {
     </div>
 
     ${flagged.length ? `<div class="r-sec"><h3>Guest turns flagged <em>Guard</em></h3>
-      <ul class="claims-list">${flagged.map((g) => `<li><span class="v bad">${esc(g.r.category)}</span> “${esc(g.r.evidence?.[0]?.quote || g.line.content)}”</li>`).join("")}</ul></div>` : ""}
+      <ul class="claims-list">${flagged.map((g) => `<li><span class="v bad">${esc(g.r.category)}</span> “${esc(strongEvidence(g.r).map((e) => e.quote).join(" … ") || g.line.content)}”</li>`).join("")}</ul></div>` : ""}
 
     <div class="r-actions">
       <button type="button" class="r-btn" id="copyMasked" ${run.pii?.anonymized_text ? "" : "disabled"}>Copy masked transcript</button>
       <button type="button" class="r-btn" id="copyJson">Copy report JSON</button>
     </div>
-    <div class="r-foot"><b>${calls.length}</b> ${REPLAY ? "recorded" : "live"} Clocked calls · <b>${credits}</b> credits · model time ${calls.reduce((a, c) => a + c.modelMs, 0)} ms${REPLAY ? "<br><b>RECORDED, NOT LIVE</b>" : ""}</div>
+    <div class="r-foot"><b>${calls.length}</b> ${REPLAY ? "recorded" : "live"} Clocked calls · <b>${credits}</b> credits · model time ${Math.round(calls.reduce((a, c) => a + c.modelMs, 0))} ms${REPLAY ? "<br><b>RECORDED, NOT LIVE</b>" : ""}</div>
   </article>
   <details class="facts-mini"><summary>Approved facts, with the evidence Verify used</summary><pre>${factsWithEvidence()}</pre></details>`;
 
@@ -546,7 +557,7 @@ function renderLog() {
   $("#logWrap").hidden = !calls.length;
   const cr = calls.reduce((a, c) => a + c.credits, 0);
   $("#logSum").textContent = `${calls.length} calls · ${cr} credits${REPLAY ? " · RECORDED" : ""}`;
-  $("#logList").innerHTML = calls.map((c, i) => `<details class="call"><summary>#${i + 1} POST /clocked/${esc(c.endpoint)} · ${esc(c.label || "")} · HTTP ${c.status} · ${c.credits} cr · ${c.modelMs} ms model${c.transport ? " · " + esc(c.transport) : ""}</summary>
+  $("#logList").innerHTML = calls.map((c, i) => `<details class="call"><summary>#${i + 1} POST /clocked/${esc(c.endpoint)} · ${esc(c.label || "")} · HTTP ${c.status} · ${c.credits} cr · ${Math.round(c.modelMs)} ms model${c.transport ? " · " + esc(c.transport) : ""}</summary>
     <div class="cols"><pre>${esc(JSON.stringify(c.request, null, 2))}</pre><pre>${esc(JSON.stringify(c.response, null, 2))}</pre></div></details>`).join("");
 }
 
